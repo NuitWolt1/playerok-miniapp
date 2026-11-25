@@ -53,7 +53,7 @@ declare global {
 }
 
 const STORAGE_KEY = 'playerok.catalog.v3';
-const THEME_KEY = 'playerok.theme';
+const THEME_KEY = 'playerok.theme.v2';
 const botUrl = 'https://t.me/Playerok_Guarantor_Bot';
 
 // Коллекционные подарки Telegram. Все изображения ведут на публичные NFT-превью Fragment.
@@ -117,12 +117,13 @@ const copy = {
     bot: 'Open Telegram bot', gamesInfo: 'This section is currently empty.',
     telegramConnect: 'Open this app from Telegram to show your profile.', connect: 'Open Telegram bot',
     account: 'TELEGRAM ACCOUNT', connected: 'Telegram profile connected', notConnected: 'Telegram profile not found',
-    premium: 'TELEGRAM PREMIUM', admin: 'Manage catalog', adminTitle: 'Admin panel', adminSub: 'Add and remove collectible gifts from the catalog.',
+    premium: 'TELEGRAM PREMIUM', admin: 'Manage catalog', adminTitle: 'Admin panel', adminSub: 'Add and remove collectible gifts from the catalog.', adminDenied: 'Administrator access is required.',
     localOnly: 'Changes are saved in this browser only. To publish one shared catalog for all visitors, connect a database.',
     addGift: 'Add a gift', collectionName: 'Gift collection', number: 'Gift number', modelName: 'Model', modelRarity: 'Model rarity',
     background: 'Background', backgroundRarity: 'Background rarity', pattern: 'Pattern', patternRarity: 'Pattern rarity',
-    imageUrl: 'Image URL', nftUrl: 'NFT link', saveGift: 'Add to market', catalogList: 'Catalog items', delete: 'Delete',
-    added: 'Gift added to catalog', removed: 'Gift removed', invalid: 'Fill in collection, number, model, background, pattern and image URL.',
+    imageUrl: 'Custom image URL (optional)', nftUrl: 'Paste Telegram NFT link', imageHint: 'Just paste a Telegram NFT link, for example https://t.me/nft/JellyBunny-12779. Collection, number and gift image will fill in automatically — no image URL needed.', imagePreview: 'Image preview',
+    saveGift: 'Add to market', catalogList: 'Catalog items', delete: 'Delete',
+    added: 'Gift added to catalog', removed: 'Gift removed', invalid: 'Fill in the NFT link (or collection and number), model, background and pattern.',
     openNft: 'View on Telegram', photo: 'Telegram avatar', notInTelegram: 'Not opened from Telegram',
     dark: 'Dark theme', light: 'Light theme', back: 'Back', id: 'TELEGRAM ID', username: 'USERNAME',
     userName: 'NAME', total: 'ITEMS'
@@ -140,12 +141,13 @@ const copy = {
     bot: 'Открыть Telegram-бота', gamesInfo: 'Раздел пока пуст.',
     telegramConnect: 'Открой приложение через Telegram, чтобы увидеть свой профиль.', connect: 'Открыть Telegram-бота',
     account: 'АККАУНТ TELEGRAM', connected: 'Профиль Telegram подключён', notConnected: 'Профиль Telegram не найден',
-    premium: 'TELEGRAM PREMIUM', admin: 'Управление каталогом', adminTitle: 'Панель администратора', adminSub: 'Добавление и удаление коллекционных подарков.',
+    premium: 'TELEGRAM PREMIUM', admin: 'Управление каталогом', adminTitle: 'Панель администратора', adminSub: 'Добавление и удаление коллекционных подарков.', adminDenied: 'Доступ разрешён только администраторам.',
     localOnly: 'Изменения сохраняются только в этом браузере. Для единого каталога у всех посетителей подключи базу данных.',
     addGift: 'Добавить подарок', collectionName: 'Коллекция подарка', number: 'Номер подарка', modelName: 'Модель', modelRarity: 'Редкость модели',
     background: 'Фон', backgroundRarity: 'Редкость фона', pattern: 'Узор', patternRarity: 'Редкость узора',
-    imageUrl: 'Ссылка на изображение', nftUrl: 'Ссылка на NFT', saveGift: 'Добавить в маркет', catalogList: 'Подарки в каталоге', delete: 'Удалить',
-    added: 'Подарок добавлен в каталог', removed: 'Подарок удалён', invalid: 'Заполни коллекцию, номер, модель, фон, узор и ссылку на изображение.',
+    imageUrl: 'Своя ссылка на изображение (необязательно)', nftUrl: 'Вставь ссылку на Telegram NFT', imageHint: 'Просто вставь ссылку на подарок, например https://t.me/nft/JellyBunny-12779. Коллекция, номер и изображение заполнятся автоматически — искать ссылку на картинку не нужно.', imagePreview: 'Предпросмотр изображения',
+    saveGift: 'Добавить в маркет', catalogList: 'Подарки в каталоге', delete: 'Удалить',
+    added: 'Подарок добавлен в каталог', removed: 'Подарок удалён', invalid: 'Заполни ссылку на NFT (или коллекцию и номер), модель, фон и узор.',
     openNft: 'Открыть в Telegram', photo: 'Аватар Telegram', notInTelegram: 'Приложение открыто не из Telegram',
     dark: 'Тёмная тема', light: 'Светлая тема', back: 'Назад', id: 'TELEGRAM ID', username: 'ИМЯ ПОЛЬЗОВАТЕЛЯ',
     userName: 'ИМЯ', total: 'ЛОТОВ'
@@ -169,17 +171,49 @@ function getTelegramUser(): TelegramUser | null {
   return user && typeof user.id === 'number' ? user : null;
 }
 
+function titleFromGiftSlug(slug: string): string {
+  const known: Record<string, string> = {
+    cookieheart: 'Cookie Heart', jellybunny: 'Jelly Bunny', durovscap: "Durov's Cap",
+    plushpepe: 'Plush Pepe', lovecandle: 'Love Candle', starnotepad: 'Star Notepad'
+  };
+  const normalized = slug.replace(/[^a-z0-9]/gi, '').toLowerCase();
+  if (known[normalized]) return known[normalized];
+  return slug.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2').replace(/[-_]+/g, ' ').trim();
+}
+
+function parseGiftLink(value: string): { collection: string; number: string; slug: string; source: string; image: string } | null {
+  try {
+    const url = new URL(value.trim());
+    const match = url.pathname.match(/^\/(?:nft|gift)\/([A-Za-z0-9_-]+)-(\d+)(?:\.webp)?\/?$/i);
+    if (!match) return null;
+    const slug = match[1];
+    const number = match[2];
+    const collection = titleFromGiftSlug(slug);
+    const serial = `${slug}-${number}`;
+    return {
+      collection,
+      number,
+      slug: slug.toLowerCase().replace(/[^a-z0-9]/g, ''),
+      source: `https://t.me/nft/${serial}`,
+      image: `https://nft.fragment.com/gift/${slug.toLowerCase().replace(/[^a-z0-9]/g, '')}-${number}.webp`
+    };
+  } catch {
+    return null;
+  }
+}
+
 function App() {
-  const [tab, setTab] = useState<Tab>('games');
+  const [tab, setTab] = useState<Tab>('market');
   const [lang, setLang] = useState<Lang>(() => {
     const tgLang = window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code?.toLowerCase();
     return tgLang?.startsWith('ru') ? 'RU' : 'EN';
   });
   const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem(THEME_KEY);
-    return saved === 'dark' ? 'dark' : 'light';
+    return saved === 'light' ? 'light' : 'dark';
   });
   const [telegramUser, setTelegramUser] = useState<TelegramUser | null>(() => getTelegramUser());
+  const [isAdmin, setIsAdmin] = useState(false);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Sort>('featured');
   const [sub, setSub] = useState<'gifts' | 'offers' | 'history'>('gifts');
@@ -201,7 +235,32 @@ function App() {
       setTelegramUser(user);
       if (user.language_code?.toLowerCase().startsWith('ru')) setLang('RU');
     }
+
+    // Admin status is granted only by the server after validating Telegram's signed initData.
+    let active = true;
+    const initData = webApp?.initData;
+    if (!initData) {
+      setIsAdmin(false);
+      return () => { active = false; };
+    }
+    fetch('/api/admin-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData })
+    })
+      .then(async response => {
+        if (!response.ok) return false;
+        const result: unknown = await response.json();
+        return Boolean(result && typeof result === 'object' && 'isAdmin' in result && (result as { isAdmin?: unknown }).isAdmin === true);
+      })
+      .then(allowed => { if (active) setIsAdmin(allowed); })
+      .catch(() => { if (active) setIsAdmin(false); });
+    return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (tab === 'admin' && !isAdmin) setTab('profile');
+  }, [tab, isAdmin]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(catalog));
@@ -225,6 +284,7 @@ function App() {
   }, [catalog, query, sort]);
 
   const go = (next: Tab) => {
+    if (next === 'admin' && !isAdmin) { setTab('profile'); showToast(t.adminDenied); return; }
     setTab(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -233,22 +293,29 @@ function App() {
     window.setTimeout(() => setToast(''), 2600);
   };
   const updateForm = (key: keyof typeof giftForm, value: string) => setGiftForm(old => ({ ...old, [key]: value }));
+  const updateGiftSource = (value: string) => {
+    const parsed = parseGiftLink(value);
+    setGiftForm(old => parsed ? ({ ...old, source: parsed.source, collection: parsed.collection, number: parsed.number, image: parsed.image }) : ({ ...old, source: value }));
+  };
   const addGift = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const required = ['collection', 'number', 'model', 'backdrop', 'symbol', 'image'] as const;
+    if (!isAdmin) { showToast(t.adminDenied); return; }
+    const required = ['collection', 'number', 'model', 'backdrop', 'symbol'] as const;
     if (required.some(key => !giftForm[key].trim()) || !Number.isSafeInteger(Number(giftForm.number))) {
       showToast(t.invalid); return;
     }
+    const number = Number(giftForm.number);
+    const slug = giftForm.collection.replace(/[^a-z0-9]/gi, '').toLowerCase();
+    const serial = `${slug}-${number}`;
+    const imageValue = giftForm.image.trim() || `https://nft.fragment.com/gift/${serial}.webp`;
     let imageUrl: URL;
-    try { imageUrl = new URL(giftForm.image.trim()); } catch { showToast(t.invalid); return; }
+    try { imageUrl = new URL(imageValue); } catch { showToast(t.invalid); return; }
     if (!['https:', 'http:'].includes(imageUrl.protocol)) { showToast(t.invalid); return; }
     let source = giftForm.source.trim();
     if (source) {
       try { const u = new URL(source); if (!['https:', 'http:'].includes(u.protocol)) throw new Error('URL'); }
       catch { showToast(t.invalid); return; }
     }
-    const number = Number(giftForm.number);
-    const serial = `${giftForm.collection.replace(/[^a-z0-9]/gi, '')}-${number}`;
     const item: GiftItem = {
       id: `gift-${Date.now()}-${number}`, collection: giftForm.collection.trim(), number,
       model: giftForm.model.trim(), modelRarity: giftForm.modelRarity.trim() || '—',
@@ -261,10 +328,12 @@ function App() {
     showToast(t.added);
   };
   const deleteGift = (id: string) => {
+    if (!isAdmin) { showToast(t.adminDenied); return; }
     setCatalog(old => old.filter(g => g.id !== id));
     showToast(t.removed);
   };
   const exportCatalog = () => {
+    if (!isAdmin) { showToast(t.adminDenied); return; }
     const blob = new Blob([JSON.stringify(catalog, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -272,6 +341,7 @@ function App() {
     URL.revokeObjectURL(url);
   };
   const importCatalog = (file?: File) => {
+    if (!isAdmin) { showToast(t.adminDenied); return; }
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
@@ -288,7 +358,7 @@ function App() {
 
   return <div className="app-shell" data-theme={theme}>
     <header className="topbar">
-      <button className="brand" onClick={() => go('games')} aria-label="Playerok home">
+      <button className="brand" onClick={() => go('market')} aria-label="Playerok home">
         <img className="brand-symbol" src="/playerok-symbol.png" alt="Playerok" />
         <img className="brand-wordmark" src="/playerok-wordmark.png" alt="Playerok" />
       </button>
@@ -398,22 +468,23 @@ function App() {
           </div>}
           <div className="funds-box"><h3>{t.add}</h3><p>{t.fundSub}</p><div className="fund-actions"><button disabled>＋ Deposit</button><button disabled>↗ Withdraw</button></div></div>
           <a className="bot-card-link" href={botUrl} target="_blank" rel="noreferrer"><span className="bot-avatar"><ShieldCheck size={19}/></span><span><b>@Playerok_Guarantor_Bot</b><small>{t.bot}</small></span><ExternalLink size={15}/></a>
-          <button className="admin-entry" onClick={() => go('admin')}><ShieldCheck size={17}/>{t.admin}<ArrowUpRight size={15}/></button>
+          {isAdmin && <button className="admin-entry" onClick={() => go('admin')}><ShieldCheck size={17}/>{t.admin}<ArrowUpRight size={15}/></button>}
         </div>
       </section>}
 
-      {tab === 'admin' && <section className="admin-page">
+      {tab === 'admin' && isAdmin && <section className="admin-page">
         <div className="admin-header"><button className="back-button" onClick={() => go('profile')}><ArrowLeft size={17}/>{t.back}</button><div className="admin-title"><div><span className="eyebrow">PLAYEROK</span><h1>{t.adminTitle}</h1><p>{t.adminSub}</p></div><div className="heading-icon"><ShieldCheck size={22}/></div></div></div>
         <div className="admin-notice"><Globe2 size={17}/><span>{t.localOnly}</span></div>
         <form className="admin-form panel" onSubmit={addGift}>
           <h2><Plus size={19}/>{t.addGift}</h2>
+          <label>{t.nftUrl}<input type="url" value={giftForm.source} onChange={e => updateGiftSource(e.target.value)} placeholder="https://t.me/nft/JellyBunny-12779"/><small className="admin-hint">{t.imageHint}</small></label>
           <label>{t.collectionName}<input required value={giftForm.collection} onChange={e => updateForm('collection', e.target.value)} placeholder="Jelly Bunny"/></label>
           <label>{t.number}<input required type="number" min="1" step="1" value={giftForm.number} onChange={e => updateForm('number', e.target.value)} placeholder="12779"/></label>
           <div className="admin-field-row"><label>{t.model}<input required value={giftForm.model} onChange={e => updateForm('model', e.target.value)} placeholder="Spring Day"/></label><label>{t.modelRarity}<input value={giftForm.modelRarity} onChange={e => updateForm('modelRarity', e.target.value)} placeholder="0.4%"/></label></div>
           <div className="admin-field-row"><label>{t.background}<input required value={giftForm.backdrop} onChange={e => updateForm('backdrop', e.target.value)} placeholder="Electric Purple"/></label><label>{t.backgroundRarity}<input value={giftForm.backdropRarity} onChange={e => updateForm('backdropRarity', e.target.value)} placeholder="0.83%"/></label></div>
           <div className="admin-field-row"><label>{t.pattern}<input required value={giftForm.symbol} onChange={e => updateForm('symbol', e.target.value)} placeholder="Spider Web"/></label><label>{t.patternRarity}<input value={giftForm.symbolRarity} onChange={e => updateForm('symbolRarity', e.target.value)} placeholder="0.55%"/></label></div>
-          <label>{t.imageUrl}<input required type="url" value={giftForm.image} onChange={e => updateForm('image', e.target.value)} placeholder="https://.../gift.webp"/></label>
-          <label>{t.nftUrl}<input type="url" value={giftForm.source} onChange={e => updateForm('source', e.target.value)} placeholder="https://t.me/nft/JellyBunny-12779"/></label>
+          <details className="admin-advanced"><summary>{lang === 'RU' ? 'Дополнительные настройки изображения' : 'Advanced image settings'}</summary><label>{t.imageUrl}<input type="url" value={giftForm.image} onChange={e => updateForm('image', e.target.value)} placeholder="https://.../gift.webp"/></label></details>
+          {giftForm.image && <div className="admin-image-preview"><small>{t.imagePreview}</small><img src={giftForm.image} alt="Gift preview" onError={e => { e.currentTarget.style.opacity = '0.25'; }}/></div>}
           <button className="primary-btn admin-submit" type="submit"><Plus size={17}/>{t.saveGift}</button>
         </form>
         <section className="admin-list panel">

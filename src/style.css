@@ -27,3 +27,15 @@
 @media(min-width:650px){.main-content{padding:22px 22px 0}.gift-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.banner-art{height:210px}.empty-hero{min-height:300px}.topbar{padding:0 24px}}
 @media(max-width:390px){.topbar{height:66px;padding:0 10px}.main-content{padding:12px 10px 0}.market-hero{padding:12px}.banner-art{height:155px}.banner-caption strong{font-size:33px}.banner-gift{width:76px;height:76px;right:22px;font-size:50px}.bot-link{max-width:92px;font-size:8px}.stats-grid{gap:6px}.stat{padding:8px}.stat b{font-size:9px}.gift-grid{gap:8px}.gift-info{padding:8px}.attribute{padding:6px}.attribute b{font-size:9px}.nav-item span{font-size:8px}.bottom-nav{height:70px;bottom:9px}.app-shell{padding-bottom:100px}.brand-wordmark{height:31px;max-width:98px}.brand-symbol{width:34px;height:34px}.theme-toggle{width:34px;height:34px;flex-basis:34px}.lang-button{height:34px;min-width:60px}.header-actions{gap:5px}}
 @media(max-width:350px){.header-actions .bot-link{display:none}.admin-field-row{grid-template-columns:1fr;gap:0}.brand-wordmark{max-width:88px}}
+
+/* Simplified gift entry: paste one Telegram NFT link and preview is filled automatically. */
+.admin-hint{display:block;color:var(--muted);font-size:10px;font-weight:500;line-height:1.55;letter-spacing:0;margin-top:1px}
+.admin-advanced{margin:8px 0 12px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--surface-2)}
+.admin-advanced summary{cursor:pointer;color:var(--blue);font-size:11px;font-weight:800;list-style:none}
+.admin-advanced summary::-webkit-details-marker{display:none}
+.admin-advanced summary:after{content:'＋';float:right;font-size:14px}
+.admin-advanced[open] summary:after{content:'−'}
+.admin-advanced label{margin:12px 0 0}
+.admin-image-preview{display:flex;align-items:center;gap:12px;margin:10px 0 14px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
+.admin-image-preview small{flex:1;color:var(--muted);font-size:10px;font-weight:800}
+.admin-image-preview img{width:76px;height:76px;object-fit:contain;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
